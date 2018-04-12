@@ -147,7 +147,7 @@ Function Take-Snapshots {
             if (!($SnapShotExists)) {
                 "Initiate Snapshot of $Name"
                 $taskTab[(Get-VM $Name | New-Snapshot -Name $SnapshotName -Description $SnapshotDescription -RunAsync).Id] = $Name
-                Add-Content -Path "$Global:WorkingFolder\SnapShot-Taken.txt" -Value "$Name"
+                #Add-Content -Path "$Global:WorkingFolder\SnapShot-Taken.txt" -Value "$Name"
                 }
             else {
                 Write-Host "$SnapshotName already exists for $Name" -ForegroundColor Red
@@ -165,9 +165,16 @@ Function Take-Snapshots {
         Get-Task | % {
             if($taskTab.ContainsKey($_.ID) -and $_.State -eq "Success"){
                 "Snapshot completed on "+ ($_.ObjectID | Get-VIObjectByVIView | Select -expandproperty Name)
+                Add-Content -Path "$Global:WorkingFolder\SnapShot-Taken.txt" -Value ($_.ObjectID | Get-VIObjectByVIView | Select -expandproperty Name)
                 $taskTab.Remove($_.Id)
                 $runningTasks--
-            }
+                }
+            ElseIF($taskTab.ContainsKey($_.Id) -and $_.State -eq "Error"){
+                Write-Host "Snapshot failed on" ($_.ObjectID | Get-VIObjectByVIView | Select -expandproperty Name) -ForegroundColor Red
+                Add-Content -Path "$Global:WorkingFolder\SnapShot-Failed.txt" -Value ($_.ObjectID | Get-VIObjectByVIView | Select -expandproperty Name)
+                $taskTab.Remove($_.Id)
+                $runningTasks--
+                }
         }
         Write-Progress -Id 0 -Activity 'Snapshot tasks still running' -Status "$($runningTasks) task of $($totalTasks) still running" -PercentComplete (($runningTasks/$totalTasks) * 100)
         Start-Sleep -Seconds 5
@@ -202,9 +209,16 @@ Function Remove-Snapshots {
         Get-Task | % {
             if($taskTab.ContainsKey($_.ID) -and $_.State -eq "Success"){
                 "Snapshot removal completed on "+ ($_.ObjectID | Get-VIObjectByVIView | Select -expandproperty Name)
+                Add-Content -Path "$Global:WorkingFolder\SnapShotRemoval-Success.txt" -Value ($_.ObjectID | Get-VIObjectByVIView | Select -expandproperty Name)
                 $taskTab.Remove($_.Id)
                 $runningTasks--
-            }
+                }
+            ElseIF($taskTab.ContainsKey($_.Id) -and $_.State -eq "Error"){
+                Write-Host "Snapshot removal failed on" + ($_.ObjectID | Get-VIObjectByVIView | Select -expandproperty Name) -ForegroundColor Red
+                Add-Content -Path "$Global:WorkingFolder\SnapShotRemoval-Failed.txt" -Value ($_.ObjectID | Get-VIObjectByVIView | Select -expandproperty Name)
+                $taskTab.Remove($_.Id)
+                $runningTasks--
+                }
         }
         Write-Progress -Id 0 -Activity 'Snapshot removal tasks still running' -Status "$($runningTasks) tasks of $($totalTasks) still running" -PercentComplete (($runningTasks/$totalTasks) * 100)
         Start-Sleep -Seconds 5
